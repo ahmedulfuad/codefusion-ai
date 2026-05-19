@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from apps.agent.views import AgentDashboardView
 
 
 api_patterns = ([
@@ -27,4 +28,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # API endpoints
     path('api/v1/', include(api_patterns, namespace='api_v1')),
+    # Simple dashboard UI
+    path('dashboard/', AgentDashboardView.as_view(), name='agent-dashboard'),
 ]
