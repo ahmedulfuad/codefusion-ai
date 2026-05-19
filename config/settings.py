@@ -159,3 +159,6 @@ REST_FRAMEWORK = {
         'user': '100/minute'
     }
 }
+
+# Load Gemini API Key
+GEMINI_API_KEY = env.str('GEMINI_API_KEY')

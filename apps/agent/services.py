@@ -1,5 +1,6 @@
 from apps.common.services import BaseService
 from .models import ResearchSession, Repository
+from .engine import CodebaseAgent
 
 
 class AgentService(BaseService):
@@ -43,13 +44,17 @@ class AgentService(BaseService):
             "question": question,
         })
         if existed_session.exists():
-            return existed_session.first()
-        
-        # Create the session linked to this repository
-        session = self.create(repository=repository, question=question, **kwargs)
-        
-        # Placeholder for the actual AI triggering
-        session.final_answer = "This is a placeholder answer. The AI agent will be wired up in Step 4!"
-        session.save(update_fields=['final_answer'])
-        
+            session = existed_session.first()
+        else:
+            # Create the session linked to this repository
+            session = self.create(repository=repository, question=question, **kwargs)
+
+        # Trigger the AI Agent
+        agent = CodebaseAgent(session=session)
+        # Method agent.run_research() automatically saves the final_answer and findings to the DB!
+        agent.run_research()
+
+        # Refresh from database to pull the updated attributes
+        session.refresh_from_db()
+
         return session
