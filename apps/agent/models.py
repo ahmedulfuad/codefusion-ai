@@ -36,6 +36,17 @@ class ResearchSession(BaseModel):
     
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            # Speeds up filtering by repo AND sorting by newest sessions simultaneously
+            models.Index(fields=['repository', '-created_at'], name='idx_session_repo_created'),
+            # Speeds up our global Cursor Pagination sorting by -created_at
+            models.Index(fields=['-created_at'], name='idx_session_created_at'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['repository', 'question'], name='unique_session_per_repo_question'
+            )
+        ]
 
     def __str__(self):
         return f"Session {self.id} for {self.repository.name}"
@@ -60,6 +71,12 @@ class Finding(BaseModel):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            # Speeds up prefetching findings for a single session chronologically
+            models.Index(fields=['session', 'created_at'], name='idx_finding_session_created'),
+            # Allows fast analytical queries if you ever want to filter findings by tool type
+            models.Index(fields=['tool_name'], name='idx_finding_tool_name'),
+        ]
 
     def __str__(self):
         return f"{self.tool_name} at {self.created_at}"
