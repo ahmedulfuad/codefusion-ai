@@ -72,7 +72,7 @@ class CodebaseAgent:
             if not resp.candidates or not resp.candidates[0].content.parts:
                 return None
             for part in resp.candidates[0].content.parts:
-                if part.function_call and part.function_call.name:
+                if not isinstance(part, str) and part.function_call and part.function_call.name:
                     return part.function_call
             return None
 
