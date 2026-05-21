@@ -1,3 +1,4 @@
+from django.views.generic import TemplateView
 from rest_framework import generics, status
 from rest_framework.response import Response
 from apps.common.pagination import CustomCursorPagination
@@ -53,3 +54,7 @@ class SessionRetrieveView(generics.RetrieveAPIView):
     def get_queryset(self):
         # Fetch the optimized queryset from the Service layer
         return self.service_class().get_session_queryset()
+
+
+class AgentDashboardView(TemplateView):
+    template_name = "dashboard.html"
