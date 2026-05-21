@@ -24,8 +24,9 @@ services:
     build: .
     command: >
       sh -c "
+        python manage.py collectstatic --noinput &&
         python manage.py migrate &&
-        gunicorn --bind 0.0.0.0:8000 --workers 4 --worker-class gevent config.wsgi:application
+        gunicorn --bind 0.0.0.0:8000 --workers 4 --worker-class gevent --reload config.wsgi:application
       "
     volumes:
       - .:/app
@@ -39,6 +40,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    stdin_open: true
+    tty: true
 
   nginx:
     image: nginx:alpine
