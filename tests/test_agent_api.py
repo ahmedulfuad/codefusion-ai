@@ -1,4 +1,5 @@
 import pytest
+import logging
 from django.urls import reverse
 from rest_framework import status
 from unittest.mock import patch, MagicMock
@@ -118,3 +119,40 @@ def test_create_research_session_api_failure_handling(mock_generative_model, api
     assert "code" in response.data
     assert response.data["code"] == "AGENT_EXECUTION_FAILED"
     assert "Quota exceeded" in response.data["detail"]
+
+
+def test_research_session_signal_logs_creation(caplog):
+    """
+    Verifies that the post_save signal triggers and logs correctly
+    when a new ResearchSession is created.
+    """
+    # Tell pytest to capture logs at the INFO level and above
+    caplog.set_level(logging.INFO)
+
+    # Trigger the creation of a session (this should fire the post_save signal)
+    session = ResearchSessionFactory(question="How do signals work?")
+
+    # Assert that the creation log was successfully written to the log stream
+    assert "[SESSION CREATED]" in caplog.text
+    assert "How do signals work?" in caplog.text
+
+
+def test_research_session_signal_logs_update(caplog):
+    """
+    Verifies that the post_save signal triggers and logs an update
+    when an existing ResearchSession is modified.
+    """
+    # Create the initial session
+    session = ResearchSessionFactory()
+
+    # Clear the logs captured during creation so we only test the update
+    caplog.clear()
+    caplog.set_level(logging.INFO)
+
+    # Update the session (this should fire the 'else' block in your signal)
+    session.token_usage = 500
+    session.save(update_fields=['token_usage'])
+
+    # Assert the update log was captured
+    assert "[SESSION UPDATED]" in caplog.text
+    assert "Tokens Used: 500" in caplog.text
