@@ -1,0 +1,29 @@
+name: Build and Test
+
+# Trigger for ALL pull requests
+on: [pull_request]
+
+jobs:
+  test:
+    name: Run Pytest in Docker
+    # GitHub provides clean Ubuntu virtual machines pre-installed with Docker and Docker Compose
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        # Change 'web' if your Django service is named something else in docker-compose.yml (e.g., 'app', 'api')
+        run: docker compose build web
+
+      # Copy the example file to act as the real .env
+      - name: Setup environment variables
+        run: cp .env.example .env
+
+      - name: Run Pytest
+        # We run the tests inside the ephemeral container.
+        # Note: Even though we mock the Gemini API in tests, Django's settings.py might 
+        # crash on startup if it strictly expects environment variables to exist. 
+        # We pass dummy values here just in case.
+        run: docker compose run --rm web pytest -v tests/
