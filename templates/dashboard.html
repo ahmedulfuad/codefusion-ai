@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CODEFUSION AI Codebase Researcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+
+    <div class="container mx-auto p-6 max-w-6xl">
+        <header class="mb-8 border-b border-gray-800 pb-4">
+            <h1 class="text-3xl font-bold text-indigo-400">🔍 CODEFUSION AI Codebase Researcher</h1>
+            <p class="text-gray-400 text-sm mt-1">Ask questions about GitHub repositories and track agent steps in real-time.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-md h-fit">
+                <h2 class="text-xl font-semibold mb-4 text-indigo-300">Start New Research</h2>
+                <form id="researchForm" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium uppercase tracking-wider text-gray-400 mb-1">Repository Name</label>
+                        <input type="text" id="repoName" required placeholder="e.g., my-awesome-app" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium uppercase tracking-wider text-gray-400 mb-1">Repository GitHub URL</label>
+                        <input type="url" id="repoUrl" required placeholder="https://github.com/user/repo" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium uppercase tracking-wider text-gray-400 mb-1">Your Question</label>
+                        <textarea id="question" required rows="4" placeholder="What does the authentication flow look like?" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded transition-colors shadow">
+                        Launch Agent
+                    </button>
+                </form>
+            </div>
+
+            <div class="lg:col-span-2 space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold text-indigo-300">Recent Research Sessions</h2>
+                </div>
+                
+                <div id="sessionsContainer" class="space-y-4">
+                    <p class="text-gray-500 text-center py-8">Loading history...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api/v1/agent/sessions/'; // Ensure this matches your urls.py
+
+        // 1. Django CSRF Token Helper
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const csrftoken = getCookie('csrftoken');
+
+        async function loadSessions() {
+            const container = document.getElementById('sessionsContainer');
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const data = await response.json();
+                const sessions = Array.isArray(data) ? data : (data.results || []);
+
+                container.innerHTML = '';
+
+                if (sessions.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-8 bg-gray-800 rounded-lg">No research sessions found.</p>';
+                    return;
+                }
+
+                sessions.forEach(session => {
+                    const repoName = session.repository?.name || 'Unknown Repo';
+                    const answer = session.final_answer || '<span class="text-amber-400 animate-pulse italic">Processing...</span>';
+                    const tokens = session.token_usage || 0;
+
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-800 p-5 rounded-lg border border-gray-700 shadow-sm space-y-3';
+                    
+                    card.innerHTML = `
+                        <div class="flex flex-wrap justify-between items-start gap-2 border-b border-gray-700 pb-2">
+                            <div>
+                                <span class="text-xs bg-indigo-900/50 text-indigo-300 px-2 py-0.5 rounded font-mono border border-indigo-700/30">${repoName}</span>
+                                <h3 class="text-md font-semibold mt-1 text-gray-200">Q: ${session.question}</h3>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-mono block bg-emerald-900/40 text-emerald-400 px-2.5 py-1 rounded border border-emerald-800/30">
+                                    🪙 Tokens: <strong>${tokens}</strong>
+                                </span>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-xs uppercase font-medium tracking-wider text-gray-400 mb-1">Final Answer:</h4>
+                            <div class="bg-gray-900/60 p-3 rounded text-sm font-mono text-gray-300 whitespace-pre-wrap max-h-40 overflow-y-auto border border-gray-800">
+                                ${answer}
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                console.error("Error fetching sessions:", err);
+                container.innerHTML = `<p class="text-red-400 text-center py-8 bg-gray-800 rounded-lg border border-red-900/50">Failed to load history. Check console for errors. Details: ${err.message}</p>`;
+            }
+        }
+
+        document.getElementById('researchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Launching...';
+
+            const payload = {
+                repository_url: document.getElementById('repoUrl').value,
+                repository_name: document.getElementById('repoName').value,
+                question: document.getElementById('question').value
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken  // 2. Attach token here
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    document.getElementById('question').value = '';
+                    await loadSessions();
+                } else {
+                    const errData = await response.json();
+                    alert(`Failed to start research session.\n${JSON.stringify(errData)}`);
+                }
+            } catch (err) {
+                console.error("Submission error:", err);
+                alert("Network error while submitting.");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Launch Agent';
+            }
+        });
+        
+        // Initial setup run
+        loadSessions();
+    </script>
+</body>
+</html>
