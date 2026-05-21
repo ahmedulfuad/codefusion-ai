@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from apps.agent.views import AgentDashboardView
 
 
@@ -30,4 +31,9 @@ urlpatterns = [
     path('api/v1/', include(api_patterns, namespace='api_v1')),
     # Simple dashboard UI
     path('dashboard/', AgentDashboardView.as_view(), name='agent-dashboard'),
+    # --- SWAGGER URLS ---
+    # Generates the raw JSON/YAML schema
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    # Actual Swagger UI interface
+    path('api/docs/', SpectacularSwaggerView.as_view(), name='swagger-ui'),
 ]
