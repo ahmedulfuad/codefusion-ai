@@ -173,3 +173,19 @@ SPECTACULAR_SETTINGS = {
 
 # Load Gemini API Key
 GEMINI_API_KEY = env.str('GEMINI_API_KEY')
+
+# Redis cache configuration for session management and token usage tracking
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env.str("REDIS_URL"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "MAX_ENTRIES": 1000,
+        }
+    }
+}
+# Time in seconds for the cache to live (e.g., 15 minutes)
+SESSION_CACHE_TIMEOUT = 60 * 15
+# Use Redis cache for session management to track token usage and manage sessions efficiently
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
