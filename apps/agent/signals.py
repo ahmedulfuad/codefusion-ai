@@ -1,7 +1,9 @@
 import logging
+from django.core.cache import cache
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import ResearchSession
+from .models import ResearchSession, Finding
+from .serializers import ResearchSessionSerializer
 
 # Initialize a standard logger
 logger = logging.getLogger(__name__)
@@ -27,3 +29,27 @@ def log_research_session_save(sender, instance, created, **kwargs):
             f"[SESSION UPDATED] ID: {instance.id} | "
             f"Tokens Used: {instance.token_usage}"
         )
+
+
+@receiver(post_save, sender=ResearchSession)
+def invalidate_session_cache(sender, instance, **kwargs):
+    """
+    Invalidate the Redis cache for the session detail view whenever a ResearchSession is saved.
+    This ensures that users always see the most up-to-date information when retrieving session details.
+    """
+    cache_key = f"research_session_detail_{instance.id}"
+    cache.delete(cache_key)
+
+
+@receiver(post_save, sender=Finding)
+def pre_warm_session_cache(sender, instance, **kwargs):
+    """
+    After a Finding is saved, we can pre-warm the cache for the associated ResearchSession detail view.
+    This is an optimization to ensure that when users retrieve the session details,
+    the data is already cached, resulting in faster response times.
+    """
+    cache.set(
+        key=f"research_session_detail_{instance.session.id}",
+        value=dict(ResearchSessionSerializer(instance.session).data),
+        timeout=60 * 15,   # Cache for 15 minutes
+    )

@@ -58,25 +58,25 @@ class SessionRetrieveView(generics.RetrieveAPIView):
         return self.service_class().get_session_queryset()
 
     def retrieve(self, request, *args, **kwargs):
-        # 1. Generate a unique cache key based on the session ID
+        # Generate a unique cache key based on the session ID
         session_id = kwargs.get('pk')
         cache_key = f"research_session_detail_{session_id}"
 
-        # 2. Attempt to fetch the data from the Redis cache
+        # Attempt to fetch the data from the Redis cache
         cached_data = cache.get(cache_key)
 
         if cached_data:
             # CACHE HIT: Return the data immediately without hitting the database
             return Response(cached_data)
 
-        # 3. CACHE MISS: Let DRF fetch the object from the DB and serialize it
+        # CACHE MISS: Let DRF fetch the object from the DB and serialize it
         response = super().retrieve(request, *args, **kwargs)
 
-        # 4. Save the newly fetched data into the Redis cache for future requests
+        # Save the newly fetched data into the Redis cache for future requests
         timeout = getattr(settings, 'SESSION_CACHE_TIMEOUT', 900) # Default 15 mins
-        cache.set(cache_key, response.data, timeout=timeout)
+        cache.set(cache_key, dict(response.data), timeout=timeout)
 
-        # 5. Return the response
+        # Return the response
         return response
 
 

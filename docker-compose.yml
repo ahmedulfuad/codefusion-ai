@@ -20,6 +20,20 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis_cache
+    restart: unless-stopped
+    # Redis typically doesn't need to expose its port to the host for this setup,
+    # but devs can uncomment the line below if they want to access it directly from your machine for debugging.
+    # ports:
+    #   - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   web:
     build: .
     command: >
@@ -55,18 +69,6 @@ services:
       - media_volume:/app/media
     depends_on:
       - web
-
-  redis:
-    image: redis:7-alpine
-    container_name: redis_cache
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
 volumes:
   postgres_data:
