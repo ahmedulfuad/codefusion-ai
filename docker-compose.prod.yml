@@ -1,0 +1,97 @@
+version: '3.8'
+
+# ==========================================
+# REUSABLE BASE CONFIGURATION
+# ==========================================
+x-app-base: &app-base
+  build: .
+  volumes:
+    - .:/app
+    - static_volume:/app/static
+    - media_volume:/app/media
+  env_file:
+    - .env.example
+    - .env
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+# ==========================================
+# SERVICES
+# ==========================================
+services:
+  db:
+    image: postgres:15-alpine
+    env_file:
+      - .env.example
+      - .env
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_cache
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data  # <-- Added persistent Redis volume
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrations:
+    <<: *app-base         # <-- Inherits build, volumes, env, and depends_on
+    command: >
+      sh -c "
+        python manage.py collectstatic --noinput &&
+        python manage.py migrate
+      "
+
+  web:
+    <<: *app-base         # <-- Inherits build, volumes, env, and depends_on
+    command: >
+      sh -c "
+        gunicorn --bind 0.0.0.0:8000 --workers 4 --worker-class gevent --reload config.wsgi:application
+      "
+    stdin_open: true
+    tty: true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/docs/ || exit 1"]   # added a random endpoint to check if the web service is up and running or exit with an error code if not responding
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s   # Gives Django time (10 seconds) to run migrations and start Gunicorn before health checks begin in case the web service is slow to start up due to migrations or other startup tasks.
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/app/static
+      - media_volume:/app/media
+    depends_on:
+      - web
+
+# ==========================================
+# VOLUMES
+# ==========================================
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
